@@ -3,10 +3,10 @@
   Features: Status check domoticz, battery status
   Authors: Patrick Stel
   Based on: https://github.com/MKme/Roomba
-  Modified: https://github.com/PatrickSt1991/solarWeatherStation
+  Modified: https://github.com/PatrickSt1991/Roomba-VirtualWall-ESP32
     
 ////  Features :
-// 1. Connect to Wi-Fi, and upload the data to MQTT broker.
+// 1. Connect to Wi-Fi, and check Domoticz Roomba Status.
 // 2. Send IR signal if Roomba is cleaning.
 // 3. Remote Battery Status Monitoring.
 // 4. Using Sleep mode to reduce the energy consumed.
