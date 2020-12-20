@@ -23,6 +23,9 @@ const char* ssid = "********";
 const char* password = "********";
 const char* roombaWallActive = "\"Data\" : \"On\"";
 
+int ADC_VALUE = 0;
+int voltage_value = 0;
+
 unsigned long minutes = 60000; //Time for transmitting
 int SEND_PIN = 5;
 IRsend irsend(SEND_PIN);
@@ -37,12 +40,21 @@ void setup()
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
-  
+
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   Serial.println("Connected to the WiFi network");
   irsend.enableIROut(38);//Lib function
 
   HTTPClient http;
+  ADC_VALUE = analogRead(33);
+  delay(1000);
+  
+  voltage_value = (ADC_VALUE * 3.3 ) / (4095);
+  //Serial.print(voltage_value);
+  String domoticzString="http://192.168.0.125:8080/json.htm?type=command&param=udevice&idx=60&nvalue=0&svalue=";
+  String domoticzInput = domoticzString+voltage_value;
+  http.begin(domoticzInput);
+  int httpUpdateCode = http.GET();
 
   http.begin("http://192.168.0.125:8080/json.htm?type=devices&rid=44");
   int httpCode = http.GET();
@@ -69,5 +81,4 @@ void setup()
     Serial.println("Error on HTTP request");
   }
 }
-
 void loop(){}
