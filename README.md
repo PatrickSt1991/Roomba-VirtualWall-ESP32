@@ -9,6 +9,8 @@ Original: https://github.com/MKme/Roomba (Arduino nano)
 
 IR LED with it's positive leg connected via a current-limiting resistor(220 Ohm or similar) to the +3.3v, and it's negative leg to Pin5 (you can choose any other if you want, check esp32 pinout)
 
+I'm using 2x 18650 Batteries giving a voltage of 8.28 which I bring down to 3.4ish with a step-down converter.
+
 If you wish to measure the battery status:
 
 <table>
@@ -32,15 +34,15 @@ If you wish to measure the battery status:
   <tbody>
     <tr>
       <td>Battery +</td>
-      <td>27K Ohm (R1)</td>
+      <td>100K Ohm (R1)</td>
     </tr>
     <tr>
       <td>Battery -</td>
-      <td>100K Ohm (R2)</td>
+      <td>68K Ohm (R2)</td>
     </tr>
     <tr>
       <td>R1 + R2</td>
-      <td>D33</td>
+      <td>D15</td>
     </tr>
   </tbody>
 </table>
