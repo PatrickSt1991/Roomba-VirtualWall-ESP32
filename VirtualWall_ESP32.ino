@@ -97,9 +97,10 @@ void setup()
   http.begin(domoticzInput);
   int httpUpdateCode = http.GET();
 
-  esp_sleep_wakeup_cause_t = esp_sleep_get_wakeup_cause();
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
 
-  if (esp_sleep_wakeup_cause_t == ESP_SLEEP_WAKEUP_EXT0)
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
   {
       while(millis() < minutes * 60) //60
       {
