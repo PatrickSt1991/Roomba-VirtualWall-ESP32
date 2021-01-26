@@ -47,7 +47,6 @@ If you wish to measure the battery status:
   </tbody>
 </table>
 
-
 <p align="center">
-  <a target="_blank" rel="noopener noreferrer" href="https://github.com/PatrickSt1991/Roomba-VirtualWall-ESP32/blob/main/20201220_105117.jpg"><img src="https://github.com/PatrickSt1991/Roomba-VirtualWall-ESP32/raw/main/20201220_105117.jpg" width="700" style="max-width:100%;"></a>
+  <a target="_blank" rel="noopener noreferrer" href="https://github.com/PatrickSt1991/Roomba-VirtualWall-ESP32/blob/main/20210126_134120.jpg"><img src="https://github.com/PatrickSt1991/Roomba-VirtualWall-ESP32/raw/main/20210126_134120.jpg" width="700" style="max-width:100%;"></a>
 </p>
