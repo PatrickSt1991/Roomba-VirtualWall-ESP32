@@ -1,5 +1,5 @@
  /*----------------------------------------------------------------------------------------------------
-  Project Name : Roomba Virtual Wall V3
+  Project Name : Roomba Virtual Wall V2
   Features: Status check domoticz, battery status
   Authors: Patrick Stel
   Based on: https://github.com/MKme/Roomba
@@ -22,8 +22,8 @@
 #define BUTTON_PIN_BITMASK 0x200000000 /* 2^33 in hex */
 #define WIFI_TIMEOUT 10000 // 10seconds in milliseconds
 
-const char* ssid = "********";
-const char* password = "********";
+const char* ssid = "**********";
+const char* password = "******";
 const char* roombaWallActive = "\"Data\" : \"On\"";
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
@@ -74,6 +74,7 @@ void setup()
   
   if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
   {
+      Serial.println("button wake up");
       voltageCheck();
       http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=On");
       int httpSwitchOn = http.GET();
@@ -108,8 +109,17 @@ void setup()
 
   if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER)
   {
+    Serial.println("timer wake up");
     voltageCheck();
-    //HIER MOET NOG EEN TIJD CHECK IN !!!!!!
+    /* Start Test Timer */
+    if(StringTimeHour != FixedCleanTime)
+    {
+      Serial.println(StringTimeHour);
+      Serial.println(FixedCleanTime);
+      getSleepTime();
+      esp_deep_sleep_start();
+    }
+    /*  End Test Timer  */
     http.begin("http://192.168.0.125:8080/json.htm?type=devices&rid=44");
     int httpRoombaStatus = http.GET();
     
@@ -189,6 +199,7 @@ void getSleepTime(){
 
   totalSleepTime = (remaining_hour +remaining_min + remaining_sec);
   int TIME_TO_SLEEP = (totalSleepTime); 
+  Serial.println(totalSleepTime);
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 }
 
