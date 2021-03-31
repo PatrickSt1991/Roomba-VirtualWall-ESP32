@@ -5,7 +5,9 @@ Checking if Roomba is cleaning by checking the Domoticz Switch. IR Send for 60 m
 
 Original: https://github.com/MKme/Roomba (Arduino nano)
 <hr/>
-<b>Handy DIY Roomba Virtual Wall with ESP32</b>
+<b>Handy DIY Roomba Virtual Wall with ESP32 and DS3231</b>
+
+-- Never could get the ESP32 to sleep for the correct time, so I added and DS3231 wich sends a pulse to the ESP32 --
 
 IR LED with it's positive leg connected via a current-limiting resistor(220 Ohm or similar) to the +3.3v, and it's negative leg to Pin5 (you can choose any other if you want, check esp32 pinout)
 
