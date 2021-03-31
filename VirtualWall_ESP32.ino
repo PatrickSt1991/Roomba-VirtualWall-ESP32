@@ -1,5 +1,5 @@
  /*----------------------------------------------------------------------------------------------------
-  Project Name : Roomba Virtual Wall V2
+  Project Name : Roomba Virtual Wall V3
   Features: Status check domoticz, battery status
   Authors: Patrick Stel
   Based on: https://github.com/MKme/Roomba
@@ -10,41 +10,32 @@
 // 2. Send IR signal if Roomba is cleaning.
 // 3. Remote Battery Status Monitoring.
 // 4. Using Sleep mode to reduce the energy consumed.
-// 5. Check time via NTP for sleep
+// 5. Keep time via DS3231
 // 6. Manual Switch if Roomba starts manually instead of schedule
 ----------------------------------------------------------------------------------------------------*/
 #include <IRremote.h>
 #include "WiFi.h" 
 #include "time.h"
 #include <HTTPClient.h>
+#include <Wire.h>
+#include "ds3231.h"
 
-#define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds  */
-#define BUTTON_PIN_BITMASK 0x200000000 /* 2^33 in hex */
 #define WIFI_TIMEOUT 10000 // 10seconds in milliseconds
 
-const char* ssid = "**********";
-const char* password = "******";
+const char* ssid = "********";
+const char* password = ""********";";
 const char* roombaWallActive = "\"Data\" : \"On\"";
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600;
-const int   daylightOffset_sec = 3600;
 const int   Analog_channel_pin = 15;
+const int   timeClock = 27;
+const int   pushButton = 33;
 
-char timeHour[3];
-char timeMin[3];
-char timeSec[3];
-
-int remaining_hourDiff = 0;
-int remaining_hourNight = 0;
-int remaining_hour = 0;
-int remaining_sec = 0;
-int remaining_min = 0;
-int newSleepTime = 0;
-int totalSleepTime = 0;
-int SecMin = 60;
 int ADC_VALUE = 0;
 int SEND_PIN = 5;
-int FixedCleanTime = 12;
+
+// time when to wake up
+uint8_t wake_HOUR = 11; //Node-red uses GMT +1 so its always 1200 and I set the timer during winter time.
+uint8_t wake_MINUTE = 0;
+uint8_t wake_SECOND = 30;
 
 double voltage_value = 0;
 
@@ -64,143 +55,35 @@ void setup()
     delay(10);
   }
   
-  Serial.begin(115200);
+  Serial.begin(115200);  
+
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_33,1);
+  esp_sleep_enable_ext1_wakeup(0x8000000,ESP_EXT1_WAKEUP_ALL_LOW);
+
   irsend.enableIROut(38);//Lib function
-  
-  esp_sleep_get_wakeup_cause();
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_33,1); //1 = High, 0 = Low
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
-  {
-      Serial.println("button wake up");
-      voltageCheck();
-      http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=On");
-      int httpSwitchOn = http.GET();
-      http.end();
-      while(millis() < minutes * 60) //60
-      {
-        irsend.mark(1000);
-        irsend.space(1000);
-      }
-      http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=Off");
-      int httpSwitchOff = http.GET();
-      http.end();
-      getSleepTime();
-      esp_deep_sleep_start();
-  }
-
-  /* Start Time Check */
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    ESP.restart();
-  }
-
-  strftime(timeHour,3, "%H", &timeinfo); //11
-  int StringTimeHour = atoi(timeHour);
-  
-  if(StringTimeHour != FixedCleanTime) //12
-  {
-    getSleepTime();
-    esp_deep_sleep_start();
-  }
-
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER)
-  {
-    Serial.println("timer wake up");
-    voltageCheck();
-    /* Start Test Timer */
-    if(StringTimeHour != FixedCleanTime)
-    {
-      Serial.println(StringTimeHour);
-      Serial.println(FixedCleanTime);
-      getSleepTime();
-      esp_deep_sleep_start();
-    }
-    /*  End Test Timer  */
-    http.begin("http://192.168.0.125:8080/json.htm?type=devices&rid=44");
-    int httpRoombaStatus = http.GET();
-    
-    if (httpRoombaStatus > 0) {
-      String payload = http.getString();
-      http.end();
-
-      if(payload.indexOf(roombaWallActive) > 0) {
-        http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=On");
-        int httpTimerOn = http.GET();
-        http.end();
-
-        while(millis() < minutes * 60) //60
-        {
-          irsend.mark(1000);
-          irsend.space(1000);
-        }
-
-        http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=Off");
-        int httpTimerOff = http.GET();
-        http.end();
-        getSleepTime();
-        esp_deep_sleep_start();
-      }else{
-        getSleepTime();
-        esp_deep_sleep_start();
-      }
-    }
-  }
+  Wire.begin();
+  DS3231_init(DS3231_INTCN);
+  DS3231_clear_a1f();
+  set_alarm();
+  print_wakeup_reason();
+  esp_deep_sleep_start();
 }
 
-void getSleepTime(){
-  /* Start Time Check */
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    ESP.restart();
-  }
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
 
-  strftime(timeHour,3, "%H", &timeinfo); //11
-  strftime(timeMin,3, "%M", &timeinfo);  //21
-  strftime(timeSec,3, "%S", &timeinfo);  //24
-  int StringTimeHour = atoi(timeHour);
-  int StringTimeMin = atoi(timeMin);
-  int StringTimeSec = atoi(timeSec);
-
-  //Hour greater then 12
-  if(StringTimeHour > FixedCleanTime)//12
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
   {
-    remaining_hourDiff = (StringTimeHour - 11); //11
-    remaining_hourNight = (24 - remaining_hourDiff);
-    remaining_hour = (remaining_hourNight * 3600);
-  }
-  //Hour greater less 12
-  if(StringTimeHour < FixedCleanTime)//12
-  {
-    remaining_hourDiff = (11 - StringTimeHour); //11
-    remaining_hour = (remaining_hourDiff * 3600);
+    voltageCheck();
+    buttonWakeUp();
   }
 
-  if(StringTimeHour == FixedCleanTime)
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1)
   {
-    remaining_hour = (23 * 3600);
+    voltageCheck();
+    timerWakeUp();  
   }
-
-  //Get minutes
-  if(StringTimeMin != 00)
-  {
-    remaining_min = ((SecMin - StringTimeMin) * 60); /* To seconds */
-  }
-
-  //Get seconds
-  if(StringTimeSec != 00) 
-  {
-    remaining_sec = (SecMin - StringTimeSec);
-  }
-
-  totalSleepTime = (remaining_hour +remaining_min + remaining_sec);
-  int TIME_TO_SLEEP = (totalSleepTime); 
-  Serial.println(totalSleepTime);
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 }
 
 void voltageCheck(){
@@ -214,4 +97,56 @@ void voltageCheck(){
   http.end();
 }
 
-void loop(){}
+void set_alarm(void){
+    uint8_t flags[5] = { 0, 0, 0, 1, 1 };
+
+    DS3231_set_a1(wake_SECOND, wake_MINUTE, wake_HOUR, 0, flags);
+    DS3231_set_creg(DS3231_INTCN | DS3231_A1IE);
+}
+
+void buttonWakeUp(){
+    http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=On");
+    int httpSwitchOn = http.GET();
+    http.end();
+    while(millis() < minutes * 60) //60
+    {
+      irsend.mark(1000);
+      irsend.space(1000);
+    }
+    http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=Off");
+    int httpSwitchOff = http.GET();
+    http.end();
+    esp_deep_sleep_start();
+}
+
+void timerWakeUp(){
+  http.begin("http://192.168.0.125:8080/json.htm?type=devices&rid=44");
+  int httpRoombaStatus = http.GET();
+  
+  if (httpRoombaStatus > 0) {
+    String payload = http.getString();
+    http.end();
+    if(payload.indexOf(roombaWallActive) > 0) {
+      http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=On");
+      int httpTimerOn = http.GET();
+      http.end();
+  
+      while(millis() < minutes * 60) //60
+      {
+        irsend.mark(1000);
+        irsend.space(1000);
+      }
+  
+      http.begin("http://192.168.0.125:8080/json.htm?type=command&param=switchlight&idx=68&switchcmd=Off");
+      int httpTimerOff = http.GET();
+      http.end();
+      esp_deep_sleep_start();
+    }else{
+      esp_deep_sleep_start();
+    }
+  }
+}
+
+void loop(){
+ //not used
+}
